@@ -89,12 +89,14 @@ class LinkToFabricHelper:
             sql_text = entity.create_view(view_prefix=view_prefix, keep_options=keep_options)
             sql_all_views += sql_text
             if self._metadata_connector == 'fabric':
-                pass
+                with open(f"/lakehouse/default/Files/{output_folder}/{view_prefix}{entity.name}.sql", "w") as text_file:
+                    text_file.write(sql_text)
             elif self._metadata_connector == 'pyodbc':
                 with open(f"{output_folder}/{view_prefix}{entity.name}.sql", "w") as text_file:
                     text_file.write(sql_text)
         if self._metadata_connector == 'fabric':
-                pass
+                with open(f"/lakehouse/default/Files/{output_folder}/_CREATE_ALL_VIEWS.sql", "w") as text_file:
+                    text_file.write(sql_all_views)
         elif self._metadata_connector == 'pyodbc':
             with open(f"{output_folder}/_CREATE_ALL_VIEWS.sql", "w") as text_file:
                 text_file.write(sql_all_views)
@@ -128,7 +130,7 @@ class LinkToFabricHelper:
     @property
     def language_code(self) -> int:
         return self._language_code
-
+    
 
 class Entity:
     def __init__(self, schema, entity_name) -> None:
@@ -142,7 +144,7 @@ class Entity:
         return self._name
     
     @property
-    def schema(self) -> LinkToFabricHelper:
+    def schema(self):
         return self._schema
 
     def upsert_columns(self) -> None:
