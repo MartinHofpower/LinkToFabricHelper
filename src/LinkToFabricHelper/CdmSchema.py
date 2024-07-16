@@ -21,14 +21,25 @@ class CdmSchema:
         self._populate_metadata_tables()
 
     def _populate_metadata_tables(self) -> None:
+        """
+        This method is a wrapper that populates the metadata tables based on the selected metadata connector.
+        If the metadata connector is set to 'fabric', it calls the _populate_metadata_tables_with_fabric() method.
+        If the metadata connector is set to 'pyodbc', it calls the _populate_metadata_tables_with_pyodbc() method.
+        If the metadata connector is not defined or not one of the allowed metadata readers, it raises a ValueError.
+        """
         if self._metadata_connector == 'fabric':
             self._populate_metadata_tables_with_fabric()
         elif self._metadata_connector == 'pyodbc':
             self._populate_metadata_tables_with_pyodbc()
         else:
-            ValueError(f"Error with metadata_connector setting {self._metadata_connector}. Setting not defined, only one of {self._allowed_metadata_readers} is allowed.")
+            raise ValueError(f"Error with metadata_connector setting {self._metadata_connector}. Setting not defined, only one of {self._allowed_metadata_readers} is allowed.")
     
     def _populate_metadata_tables_with_fabric(self) -> None:
+        """
+        This method populates the metadata tables using the fabric metadata connector.
+        It retrieves the table names and column names from the Spark session catalog.
+        It also retrieves the global optionsets, optionsets, statecodes, statuscodes, and target metadata from the Spark session.
+        """
         #self._tables_metadata = pd.DataFrame({'TABLE_NAME': [table.name for table in self._spark_session.catalog.listTables()]})
         self._tables_metadata = self._spark_session.sql("show tables").selectExpr("tableName as TABLE_NAME").toPandas()
         self._tables_metadata.drop(self._tables_metadata[self._tables_metadata['TABLE_NAME'].isin(self._metadata_tablenames)].index, inplace=True)
@@ -45,6 +56,12 @@ class CdmSchema:
         self._target_metadata = self._spark_session.sql("SELECT EntityName, AttributeName, ReferencedEntity, ReferencedAttribute FROM TargetMetadata").toPandas()   
 
     def _populate_metadata_tables_with_pyodbc(self) -> None:
+        """
+        This method populates the metadata tables using the pyodbc metadata connector.
+        It establishes a connection to the SQL Server using the provided connection string.
+        It retrieves the table names and column names from the INFORMATION_SCHEMA.
+        It also retrieves the global optionsets, optionsets, statecodes, statuscodes, and target metadata from the database.
+        """
         credential = identity.InteractiveBrowserCredential() 
         token_object = credential.get_token("https://database.windows.net//.default") 
         token_as_bytes = bytes(token_object.token, "UTF-8") 
@@ -63,20 +80,13 @@ class CdmSchema:
         self._target_metadata = pd.read_sql("SELECT EntityName, AttributeName, ReferencedEntity, ReferencedAttribute FROM dbo.TargetMetadata", connection)
         connection.close()
 
-    @property
-    def entities(self) -> list: 
-        return list(self._entities.values())
-    
-    def has_entity(self, entity_name) -> bool:
-        return entity_name in self._entities.keys()
-
-    def get_entity(self, entity_name):
-        if self.has_entity(entity_name=entity_name):
-            return self._entities[entity_name]
-        else:
-            raise KeyError(f"Error: Schema has no entity named '{entity_name}'.")
+    # populate schema from metadata tables
 
     def populate_schema(self) -> None:
+        """
+        This method populates the schema by iterating over the tables in the metadata and creating entities for each table.
+        It also calls the 'upsert_columns' and 'upsert_optionsets' methods for each entity to populate the columns and optionsets.
+        """
         for table in self._tables_metadata['TABLE_NAME']:
             entity = Entity(schema=self, entity_name=table)
             self._entities[table] = entity
@@ -84,6 +94,20 @@ class CdmSchema:
             entity.upsert_optionsets()
 
     def create_views(self, output_folder=".", view_prefix='v_', keep_options=False) -> None:
+        """
+        This method creates views for each entity in the schema.
+        It generates SQL code for each entity's view using the 'create_view' method of the entity.
+        The SQL code is then written to a file based on the metadata connector.
+        Finally, a file containing SQL code for all views is created.
+        
+        Parameters:
+        - output_folder (str): The folder where the view SQL files will be saved. Default is the current directory.
+        - view_prefix (str): The prefix to be added to the name of each view. Default is 'v_'.
+        - keep_options (bool): Whether to keep the optionsets in the view SQL code. Default is False.
+        
+        Returns:
+        None
+        """
         sql_all_views = str()
         for entity in self.entities:
             sql_text = entity.create_view(view_prefix=view_prefix, keep_options=keep_options)
@@ -103,6 +127,19 @@ class CdmSchema:
 
     # Access methods:
 
+    @property
+    def entities(self) -> list: 
+        return list(self._entities.values())
+    
+    def has_entity(self, entity_name) -> bool:
+        return entity_name in self._entities.keys()
+
+    def get_entity(self, entity_name):
+        if self.has_entity(entity_name=entity_name):
+            return self._entities[entity_name]
+        else:
+            raise KeyError(f"Error: Schema has no entity named '{entity_name}'.")
+    
     @property
     def global_optionsets_metadata(self) -> pd.DataFrame:
         return self._global_optionsets_metadata
@@ -141,30 +178,83 @@ class Entity:
 
     @property
     def name(self) -> str:
+        """
+        Get the name of the entity.
+        
+        Returns:
+        str: The name of the entity.
+        """
         return self._name
     
     @property
     def schema(self):
+        """
+        Get the schema that the entity belongs to.
+        
+        Returns:
+        CdmSchema: The schema that the entity belongs to.
+        """
         return self._schema
 
     def upsert_columns(self) -> None:
+        """
+        Upsert the columns of the entity.
+        This method populates the columns dictionary of the entity by iterating over the columns metadata of the schema.
+        
+        Returns:
+        None
+        """
         for index, row in self.schema.columns_metadata[self.schema.columns_metadata['TABLE_NAME'] == self.name].iterrows():
             self._columns[row['COLUMN_NAME']] = Column(entity=self, column_name=row['COLUMN_NAME'], ordinal_position=row['ORDINAL_POSITION'])
 
     @property
     def columns(self) -> list: 
+        """
+        Get the columns of the entity.
+        
+        Returns:
+        list: The list of columns of the entity.
+        """
         return list(self._columns.values())
     
     def has_column(self, column_name) -> bool:
+        """
+        Check if the entity has a column with the given name.
+        
+        Parameters:
+        - column_name (str): The name of the column.
+        
+        Returns:
+        bool: True if the entity has a column with the given name, False otherwise.
+        """
         return column_name in self._columns.keys()
     
     def get_column(self, column_name):
+        """
+        Get the column with the given name.
+        
+        Parameters:
+        - column_name (str): The name of the column.
+        
+        Returns:
+        Column: The column with the given name.
+        
+        Raises:
+        KeyError: If the entity has no column with the given name.
+        """
         if self.has_column(column_name=column_name):
             return self._columns[column_name]
         else:
             raise KeyError(f"Error: Entity {self.name} has no column named '{column_name}'.")
     
     def upsert_optionsets(self) -> None:
+        """
+        Upsert the optionsets of the entity.
+        This method populates the optionsets dictionary of the entity based on the columns metadata and global/optionsets metadata of the schema.
+        
+        Returns:
+        None
+        """
         if self.has_column(column_name='statecode'):
             self._optionsets['statecode'] = Optionset(name='statecode', optionset_table="StateMetadata", entity=self, instance=self.schema.statecode_metadata[self.schema.statecode_metadata['EntityName'] == self.name].rename(columns={'State': 'Option'}))
         if self.has_column(column_name='statuscode'): 
@@ -179,18 +269,55 @@ class Entity:
             
     @property
     def optionsets(self) -> list: 
+        """
+        Get the optionsets of the entity.
+        
+        Returns:
+        list: The list of optionsets of the entity.
+        """
         return list(self._optionsets.values())
     
     def has_optionset(self, optionset_name) -> bool:
+        """
+        Check if the entity has an optionset with the given name.
+        
+        Parameters:
+        - optionset_name (str): The name of the optionset.
+        
+        Returns:
+        bool: True if the entity has an optionset with the given name, False otherwise.
+        """
         return optionset_name in self._optionsets.keys()
     
     def get_optionset(self, optionset_name):
+        """
+        Get the optionset with the given name.
+        
+        Parameters:
+        - optionset_name (str): The name of the optionset.
+        
+        Returns:
+        Optionset: The optionset with the given name.
+        
+        Raises:
+        KeyError: If the entity has no optionset with the given name.
+        """
         if self.has_optionset(optionset_name=optionset_name):
             return self._optionsets[optionset_name]
         else:
             raise KeyError(f"Error: Entity {self.name} has no optionset named '{optionset_name}'.")
-
+    
     def create_view(self, view_prefix, keep_options) -> str:
+        """
+        Create the SQL code for the view of the entity.
+        
+        Parameters:
+        - view_prefix (str): The prefix to be added to the name of the view.
+        - keep_options (bool): Whether to keep the optionsets in the view SQL code.
+        
+        Returns:
+        str: The SQL code for the view of the entity.
+        """
         pre_from = f"CREATE OR ALTER VIEW {view_prefix}{self.name} \n AS \n SELECT "
         post_from = f"FROM {self.name} AS tab \n"
         if self.schema._metadata_connector == 'fabric':	
@@ -231,14 +358,32 @@ class Column:
 
     @property
     def entity(self) -> Entity:
+        """
+        Get the entity that the column belongs to.
+        
+        Returns:
+        Entity: The entity that the column belongs to.
+        """
         return self._entity
     
     @property
     def name(self) -> str:
+        """
+        Get the name of the column.
+        
+        Returns:
+        str: The name of the column.
+        """
         return self._name
     
     @property
     def ordinal_position(self) -> int:
+        """
+        Get the ordinal position of the column.
+        
+        Returns:
+        int: The ordinal position of the column.
+        """
         return self._ordinal_position
 
 
@@ -258,25 +403,61 @@ class Optionset:
         self._populate_options_dict()
 
     def _populate_options_dict(self) -> None:
+        """
+        Populate the options dictionary of the optionset.
+        
+        Returns:
+        None
+        """
         for index, row in self._instance.iterrows():
             self._options_dict[row['Option']] = row['LocalizedLabel']
 
     @property
     def entity(self) -> Entity:
+        """
+        Get the entity that the optionset belongs to.
+        
+        Returns:
+        Entity: The entity that the optionset belongs to.
+        """
         return self._entity
     
     @property
     def name(self) -> str:
+        """
+        Get the name of the optionset.
+        
+        Returns:
+        str: The name of the optionset.
+        """
         return self._name
     
     @property
     def options_dict(self) -> dict:
+        """
+        Get the options dictionary of the optionset.
+        
+        Returns:
+        dict: The options dictionary of the optionset.
+        """
         return self._options_dict
     
     @property
     def optionset_table(self) -> str:
+        """
+        Get the optionset table of the optionset.
+        
+        Returns:
+        str: The optionset table of the optionset.
+        """
         return self._optionset_table
 
     @property
     def option_qualifier(self) -> str:
+        """
+        Get the option qualifier of the optionset.
+        
+        Returns:
+        str: The option qualifier of the optionset.
+        """
         return self._option_qualifier

@@ -4,13 +4,13 @@ SQL_ENDPOINT = connection_secrets.SQL_ENDPOINT
 DATABASE_NAME = connection_secrets.DATABASE_NAME
 
 # Package can run either from local machine or within Fabric
-# -> if run in fabric use metadata_reader = 'fabric' and set SparkSession
-# -> if run from local machine use metadata_reader = 'pyodbc' and set corresponding properties
+# -> if run in fabric use metadata_connector = 'fabric' and set SparkSession
+# -> if run from local machine use metadata_connector = 'pyodbc' and set corresponding properties
 language_code = 1031
 ltfh = cdmschema.CdmSchema(metadata_connector='pyodbc', 
-                                sql_endpoint=SQL_ENDPOINT, 
-                                database_name=DATABASE_NAME,
-                                language_code=language_code)
+                           sql_endpoint=SQL_ENDPOINT, 
+                           database_name=DATABASE_NAME,
+                           language_code=language_code)
 
 ltfh.populate_schema()
 
