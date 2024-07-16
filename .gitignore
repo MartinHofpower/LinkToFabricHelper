@@ -1,0 +1,9 @@
+debugconnector.py
+test.py
+out
+secret.py
+connection_secrets.py
+dist
+pyproject.toml
+__pycache__
+src/LinkToFabricHelper.egg-info

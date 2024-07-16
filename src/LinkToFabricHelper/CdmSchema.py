@@ -3,7 +3,7 @@ from itertools import chain, repeat
 import pyodbc, struct
 import pandas as pd
 
-class LinkToFabricHelper:
+class CdmSchema:
     _allowed_metadata_readers = ['fabric', 'pyodbc']
     _metadata_tablenames = ['GlobalOptionsetMetadata', 'OptionsetMetadata', 'StateMetadata', 'StatusMetadata', 'TargetMetadata']
 
