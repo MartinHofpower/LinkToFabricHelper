@@ -1,8 +1,6 @@
 # LinkToFabricHelper
 
-| | |
-| --- | --- |
-| Package | [![PyPI Latest Release](https://img.shields.io/pypi/v/linkToFabricHelper.svg)](https://pypi.org/project/LinkToFabricHelper/) |
+[![PyPI Latest Release](https://img.shields.io/pypi/v/linkToFabricHelper.svg)](https://pypi.org/project/LinkToFabricHelper/) 
 
 Disclaimer: Since the package is in an early stage of development it is not recommended to use it in production-environments. 
 
@@ -28,3 +26,8 @@ Into that:
 The package is designed to work when called from within a Fabric notebook so that such an update of views can run e.g. after a dataverse release and thus a possible schema change. But be aware that there is currently no possibility to create views in the sql endpoint directly out of a notebook (inofficially announced in a blog for later in 2024) so currently the created script needs to be executed manually via the sql endpoint. 
 
 For a detailed explanation of how to use the package to create these views see [the detailed documentation here.](docs/CreateConsumptionViews.md)
+
+#### Local execution
+
+It is also possible to connect to the sql endpoint directly and retrieve the metadata from there. Since the vision of this package is a direct execution within a Fabric notebook and needs someone executing it on a local machine this is not the recommended approach. 
+Nevertheless it is nice to have this possibility for debugging and development so an exemplary call is given in [localexecution.py](localexecution.py) which needs SQL_ENDPOINT (sql endpoint connection string from Fabric lakehouse) and DATABASE_NAME (name of the lakehouse in Fabric) defined in a seperate script. 
