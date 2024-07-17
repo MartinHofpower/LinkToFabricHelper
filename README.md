@@ -2,9 +2,10 @@
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/linkToFabricHelper.svg)](https://pypi.org/project/LinkToFabricHelper/) 
 
-Disclaimer: Since the package is in an early stage of development it is not recommended to use it in production-environments. 
-
 This package is designed to help developers of solutions im Microsoft Fabric that use dataverse's functionality "Link to Microsoft Fabric" to handle the cdm-like structure of the data. 
+
+#### Disclaimer: 
+Since the package is in an early stage of development it is not recommended to use it in production-environments. Any reports on bugs or other issues are highly welcome. Feel free to open an issue or [contact me directly](mailto:martin.hofbauer@hofdatsol.at). 
 
 ### Common Data Model 
 
